@@ -1,0 +1,38 @@
+services:
+#  user-service:
+#    build: ./services/user-service
+#    ports:
+#      - "8080:8080"
+#    depends_on:
+#      - postgres
+#      - redis
+#    environment:
+#      - SPRING_PROFILES_ACTIVE=docker
+#      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/strangerlink
+#      - SPRING_DATASOURCE_USERNAME=strangerlink
+#      - SPRING_DATASOURCE_PASSWORD=securepassword
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+#      - JWT_SECRET=YourSecureSecretKey
+#      - JWT_EXPIRATION=86400000
+
+  postgres:
+    image: postgres:14
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=strangerlink
+      - POSTGRES_PASSWORD=securepassword
+      - POSTGRES_DB=strangerlink
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
+  redis_data:
