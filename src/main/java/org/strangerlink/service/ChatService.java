@@ -1,0 +1,228 @@
+// Chat Service
+package org.strangerlink.service;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.strangerlink.dto.ConversationDto;
+import org.strangerlink.dto.MessageDto;
+import org.strangerlink.model.Conversation;
+import org.strangerlink.model.Message;
+import org.strangerlink.repository.ConversationRepository;
+import org.strangerlink.repository.MessageRepository;
+import org.strangerlink.dto.UserDto;
+import org.strangerlink.model.User;
+import org.strangerlink.repository.UserRepository;
+
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ChatService {
+
+    private final ConversationRepository conversationRepository;
+    private final MessageRepository messageRepository;
+    private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final RedisTemplate<String, String> redisTemplate;
+
+    private static final String ONLINE_USERS_KEY = "online_users";
+
+    @Transactional
+    public MessageDto sendMessage(Long senderId, Long receiverId, MessageDto messageDto) {
+        // Get or create conversation
+        Conversation conversation = getOrCreateConversation(senderId, receiverId);
+
+        // Create message
+        Message message = new Message();
+        message.setSenderId(senderId);
+        message.setConversationId(conversation.getId());
+        message.setContent(messageDto.getContent());
+        message.setTimestamp(LocalDateTime.now());
+        message.setType(Message.MessageType.valueOf(messageDto.getType()));
+        message.setStatus(Message.MessageStatus.SENT);
+        message.setMediaUrl(messageDto.getMediaUrl());
+        message.setMediaType(messageDto.getMediaType());
+
+        Message savedMessage = messageRepository.save(message);
+
+        // Update conversation
+        conversation.setLastMessageAt(message.getTimestamp());
+        conversation.setLastMessagePreview(message.getContent());
+
+        // Update unread count for the receiver
+        if (conversation.getUser1Id().equals(receiverId)) {
+            conversation.setUnreadCountUser1(conversation.getUnreadCountUser1() + 1);
+        } else {
+            conversation.setUnreadCountUser2(conversation.getUnreadCountUser2() + 1);
+        }
+
+        conversationRepository.save(conversation);
+
+        // Convert to DTO
+        MessageDto savedMessageDto = convertToMessageDto(savedMessage);
+
+        // Send message to WebSocket
+        messagingTemplate.convertAndSendToUser(
+                receiverId.toString(),
+                "/queue/messages",
+                savedMessageDto
+        );
+
+        return savedMessageDto;
+    }
+
+    @Transactional
+    public List<MessageDto> getMessages(Long conversationId, Long userId, int page, int size) {
+        return messageRepository.findByConversationIdOrderByTimestampDesc(
+                        conversationId,
+                        PageRequest.of(page, size, Sort.by("timestamp").descending())
+                )
+                .getContent()
+                .stream()
+                .map(this::convertToMessageDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<ConversationDto> getUserConversations(Long userId) {
+        List<Conversation> conversations = conversationRepository.findConversationsByUserId(userId);
+
+        return conversations.stream()
+                .map(conversation -> {
+                    Long otherUserId = conversation.getUser1Id().equals(userId)
+                            ? conversation.getUser2Id() : conversation.getUser1Id();
+
+                    User otherUser = userRepository.findById(otherUserId)
+                            .orElseThrow(() -> new RuntimeException("User not found"));
+
+                    UserDto otherUserDto = UserDto.builder()
+                            .id(otherUser.getId())
+                            .username(otherUser.getUsername())
+                            .email(otherUser.getEmail())
+                            .build();
+
+                    int unreadCount = conversation.getUser1Id().equals(userId)
+                            ? conversation.getUnreadCountUser1()
+                            : conversation.getUnreadCountUser2();
+
+                    boolean isOnline = isUserOnline(otherUserId);
+
+                    return ConversationDto.builder()
+                            .id(conversation.getId())
+                            .otherUser(otherUserDto)
+                            .lastMessage(conversation.getLastMessagePreview())
+                            .lastMessageTimestamp(conversation.getLastMessageAt() != null
+                                    ? conversation.getLastMessageAt().toInstant(ZoneOffset.UTC).toEpochMilli()
+                                    : 0)
+                            .unreadCount(unreadCount)
+                            .isOnline(isOnline)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void markMessagesAsRead(Long conversationId, Long userId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        // Update message status
+        List<Message> unreadMessages = messageRepository.findUnreadMessages(conversationId, userId);
+        unreadMessages.forEach(message -> message.setStatus(Message.MessageStatus.READ));
+        messageRepository.saveAll(unreadMessages);
+
+        // Reset unread counter
+        if (conversation.getUser1Id().equals(userId)) {
+            conversation.setUnreadCountUser1(0);
+        } else {
+            conversation.setUnreadCountUser2(0);
+        }
+
+        conversationRepository.save(conversation);
+
+        // Notify sender that messages were read
+        unreadMessages.forEach(message -> {
+            MessageDto messageDto = convertToMessageDto(message);
+            messagingTemplate.convertAndSendToUser(
+                    message.getSenderId().toString(),
+                    "/queue/message-status",
+                    messageDto
+            );
+        });
+    }
+
+    public void setUserOnlineStatus(Long userId, boolean isOnline) {
+        String key = ONLINE_USERS_KEY + ":" + userId;
+        if (isOnline) {
+            redisTemplate.opsForValue().set(key, "online");
+        } else {
+            redisTemplate.delete(key);
+        }
+
+        // Notify friends/contacts about status change
+        List<Conversation> conversations = conversationRepository.findConversationsByUserId(userId);
+        conversations.forEach(conversation -> {
+            Long otherUserId = conversation.getUser1Id().equals(userId)
+                    ? conversation.getUser2Id() : conversation.getUser1Id();
+
+            messagingTemplate.convertAndSendToUser(
+                    otherUserId.toString(),
+                    "/queue/user-status",
+                    new UserStatusDto(userId, isOnline)
+            );
+        });
+    }
+
+    public boolean isUserOnline(Long userId) {
+        String key = ONLINE_USERS_KEY + ":" + userId;
+        return redisTemplate.hasKey(key);
+    }
+
+    private Conversation getOrCreateConversation(Long user1Id, Long user2Id) {
+        Optional<Conversation> existingConversation =
+                conversationRepository.findConversationBetweenUsers(user1Id, user2Id);
+
+        if (existingConversation.isPresent()) {
+            return existingConversation.get();
+        }
+
+        Conversation newConversation = new Conversation();
+        newConversation.setUser1Id(user1Id);
+        newConversation.setUser2Id(user2Id);
+        newConversation.setCreatedAt(LocalDateTime.now());
+
+        return conversationRepository.save(newConversation);
+    }
+
+    private MessageDto convertToMessageDto(Message message) {
+        return MessageDto.builder()
+                .id(message.getId())
+                .senderId(message.getSenderId())
+                .conversationId(message.getConversationId())
+                .content(message.getContent())
+                .timestamp(message.getTimestamp().toInstant(ZoneOffset.UTC).toEpochMilli())
+                .type(message.getType().name())
+                .status(message.getStatus().name())
+                .mediaUrl(message.getMediaUrl())
+                .mediaType(message.getMediaType())
+                .build();
+    }
+
+    @Data
+    @AllArgsConstructor
+    private static class UserStatusDto {
+        private Long userId;
+        private boolean online;
+    }
+}
