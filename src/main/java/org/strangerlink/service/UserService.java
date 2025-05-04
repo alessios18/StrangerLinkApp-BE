@@ -62,6 +62,44 @@ public class UserService {
         );
     }
 
+    @Transactional
+    public User findRandomMatch(Long userId) {
+        // Get user's search preferences
+        User currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        SearchPreference pref = searchPreferenceRepository.findByUserId(userId)
+                .orElse(new SearchPreference());
+
+        Integer minAge = pref.getMinAge();
+        Integer maxAge = pref.getMaxAge();
+        String gender = "all".equals(pref.getPreferredGender()) ? null : pref.getPreferredGender();
+        Long countryId = pref.isAllCountries() ? null :
+                (pref.getPreferredCountry() != null ? pref.getPreferredCountry().getId() : null);
+        boolean allCountries = pref.isAllCountries();
+
+        // Set last active threshold (configurable)
+        LocalDateTime lastActiveThreshold = LocalDateTime.now().minusHours(1); // Default 1 hour
+
+        // Find random matching user
+        List<User> matchingUsers = userRepository.findRandomMatchingUser(
+                minAge,
+                maxAge,
+                gender,
+                countryId,
+                allCountries,
+                userId,
+                lastActiveThreshold
+        );
+
+        if (matchingUsers.isEmpty()) {
+            return null;
+        }
+
+        // Return the first user (since we're using ORDER BY RANDOM())
+        return matchingUsers.get(0);
+    }
+
     public void blockUser(Long userId) {
         // Get current user
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();

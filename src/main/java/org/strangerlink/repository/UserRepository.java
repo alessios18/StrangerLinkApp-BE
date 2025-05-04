@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,4 +39,24 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @Param("countryId") Long countryId,
             @Param("allCountries") boolean allCountries,
             @Param("userId") Long userId);
+
+    @Query("SELECT u FROM User u JOIN u.profile p WHERE " +
+            "(:minAge IS NULL OR p.age >= :minAge) AND " +
+            "(:maxAge IS NULL OR p.age <= :maxAge) AND " +
+            "(:gender IS NULL OR p.gender = :gender) AND " +
+            "(:allCountries = true OR (:countryId IS NULL OR p.country.id = :countryId)) AND " +
+            "u.id NOT IN (SELECT c.user1Id FROM Conversation c WHERE c.user2Id = :userId) AND " +
+            "u.id NOT IN (SELECT c.user2Id FROM Conversation c WHERE c.user1Id = :userId) AND " +
+            "u.id NOT IN (SELECT bu.id FROM User blocker JOIN blocker.blockedUsers bu WHERE blocker.id = :userId) AND " +
+            "u.lastActive > :lastActiveTime AND " +
+            "u.id <> :userId " +
+            "ORDER BY FUNCTION('RANDOM')")
+    List<User> findRandomMatchingUser(
+            @Param("minAge") Integer minAge,
+            @Param("maxAge") Integer maxAge,
+            @Param("gender") String gender,
+            @Param("countryId") Long countryId,
+            @Param("allCountries") boolean allCountries,
+            @Param("userId") Long userId,
+            @Param("lastActiveTime") LocalDateTime lastActiveTime);
 }

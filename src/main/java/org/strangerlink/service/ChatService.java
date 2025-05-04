@@ -41,7 +41,22 @@ public class ChatService {
     @Transactional
     public MessageDto sendMessage(Long senderId, Long receiverId, MessageDto messageDto) {
         // Get or create conversation
-        Conversation conversation = getOrCreateConversation(senderId, receiverId);
+        Conversation conversation;
+        boolean isNewConversation = false;
+
+        if (messageDto.getConversationId() == null || messageDto.getConversationId() == 0) {
+            // Create new conversation
+            conversation = new Conversation();
+            conversation.setUser1Id(senderId);
+            conversation.setUser2Id(receiverId);
+            conversation.setCreatedAt(LocalDateTime.now());
+            conversation = conversationRepository.save(conversation);
+            isNewConversation = true;
+        } else {
+            // Get existing conversation
+            conversation = conversationRepository.findById(messageDto.getConversationId())
+                    .orElseThrow(() -> new RuntimeException("Conversation not found"));
+        }
 
         // Create message
         Message message = new Message();
@@ -78,6 +93,15 @@ public class ChatService {
                 "/queue/messages",
                 savedMessageDto
         );
+
+        // If this is a new conversation, notify the receiver about the new conversation
+        if (isNewConversation) {
+            messagingTemplate.convertAndSendToUser(
+                    receiverId.toString(),
+                    "/queue/new-conversation",
+                    true
+            );
+        }
 
         return savedMessageDto;
     }

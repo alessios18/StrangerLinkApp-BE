@@ -51,6 +51,33 @@ public class SearchController {
         return ResponseEntity.ok(userDtos);
     }
 
+    @GetMapping("/random-match")
+    public ResponseEntity<?> getRandomMatch() {
+        // Get current user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Find random match
+        User matchedUser = userService.findRandomMatch(currentUser.getId());
+
+        if (matchedUser == null) {
+            return ResponseEntity.noContent().build(); // No match found
+        }
+
+        // Convert to DTO
+        UserDto userDto = UserDto.builder()
+                .id(matchedUser.getId())
+                .username(matchedUser.getUsername())
+                .email(matchedUser.getEmail())
+                .createdAt(matchedUser.getCreatedAt().toInstant(java.time.ZoneOffset.UTC).toEpochMilli())
+                .lastActive(matchedUser.getLastActive().toInstant(java.time.ZoneOffset.UTC).toEpochMilli())
+                .build();
+
+        return ResponseEntity.ok(userDto);
+    }
+
     @GetMapping("/recent")
     public ResponseEntity<List<UserDto>> getRecentlyActiveUsers() {
         // Get current user details
