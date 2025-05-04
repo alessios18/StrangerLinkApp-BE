@@ -12,7 +12,6 @@ public class UserDto {
     private Long id;
     private String username;
     private String email;
-    private LocalDateTime createdAt;
-    private LocalDateTime lastActive;
-    // Aggiungi altri campi necessari, ma ometti dati sensibili come la password
+    private long createdAt; // cambiato da LocalDateTime a long
+    private long lastActive; // cambiato da LocalDateTime a long
 }

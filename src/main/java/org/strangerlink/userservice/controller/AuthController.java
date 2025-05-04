@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.*;
 import org.strangerlink.userservice.dto.AuthDto.AuthResponse;
 import org.strangerlink.userservice.dto.AuthDto.LoginRequest;
 import org.strangerlink.userservice.dto.AuthDto.RegisterRequest;
+import org.strangerlink.userservice.exception.ApiException;
 import org.strangerlink.userservice.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,16 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.ok(authService.register(request));
+        try {
+            return ResponseEntity.ok(authService.register(request));
+        } catch (ApiException e) {
+            // Restituisci lo stato HTTP appropriato insieme al messaggio di errore
+            return ResponseEntity.status(e.getStatus()).body(
+                    AuthResponse.builder()
+                            .error(e.getMessage())
+                            .build()
+            );
+        }
     }
 
     @PostMapping("/login")

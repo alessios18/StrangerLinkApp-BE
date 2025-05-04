@@ -1,9 +1,11 @@
 package org.strangerlink.userservice.service;
 
+import org.springframework.http.HttpStatus;
 import org.strangerlink.userservice.dto.AuthDto.AuthResponse;
 import org.strangerlink.userservice.dto.AuthDto.LoginRequest;
 import org.strangerlink.userservice.dto.AuthDto.RegisterRequest;
 import org.strangerlink.userservice.dto.UserDto;
+import org.strangerlink.userservice.exception.ApiException;
 import org.strangerlink.userservice.model.Profile;
 import org.strangerlink.userservice.model.User;
 import org.strangerlink.userservice.repository.ProfileRepository;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Service
 @RequiredArgsConstructor
@@ -32,12 +35,13 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        // Check if username or email already exists
+        // Check if username already exists
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already taken");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Username already taken");
         }
+        // Check if email already exists
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already in use");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Email already in use");
         }
 
         // Create user
@@ -74,8 +78,8 @@ public class AuthService {
                 .id(savedUser.getId())
                 .username(savedUser.getUsername())
                 .email(savedUser.getEmail())
-                .createdAt(savedUser.getCreatedAt())
-                .lastActive(savedUser.getLastActive())
+                .createdAt(savedUser.getCreatedAt().toInstant(ZoneOffset.UTC).toEpochMilli())
+                .lastActive(savedUser.getLastActive().toInstant(ZoneOffset.UTC).toEpochMilli())
                 .build();
 
         // Restituisci AuthResponse con il token e l'oggetto UserDTO
@@ -115,8 +119,8 @@ public class AuthService {
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
-                .createdAt(user.getCreatedAt())
-                .lastActive(user.getLastActive())
+                .createdAt(user.getCreatedAt().toInstant(ZoneOffset.UTC).toEpochMilli())
+                .lastActive(user.getLastActive().toInstant(ZoneOffset.UTC).toEpochMilli())
                 .build();
 
         // Restituisci AuthResponse con il token e l'oggetto UserDTO

@@ -47,5 +47,6 @@ public class AuthDto {
     public static class AuthResponse {
         private String token;
         private UserDto user;
+        private String error;
     }
 }
