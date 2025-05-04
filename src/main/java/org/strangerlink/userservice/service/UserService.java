@@ -3,8 +3,10 @@ package org.strangerlink.userservice.service;
 import org.springframework.transaction.annotation.Transactional;
 import org.strangerlink.userservice.dto.ProfileDto.ProfileSearchRequest;
 import org.strangerlink.userservice.model.Profile;
+import org.strangerlink.userservice.model.SearchPreference;
 import org.strangerlink.userservice.model.User;
 import org.strangerlink.userservice.repository.ProfileRepository;
+import org.strangerlink.userservice.repository.SearchPreferenceRepository;
 import org.strangerlink.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,6 +23,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
+    private final SearchPreferenceRepository searchPreferenceRepository;
 
     public List<User> searchUsers(ProfileSearchRequest searchRequest) {
         // Get current user
@@ -28,11 +31,33 @@ public class UserService {
         User currentUser = userRepository.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        // Get user's search preferences
+        SearchPreference pref = searchPreferenceRepository.findByUserId(currentUser.getId())
+                .orElse(null);
+
+        Integer minAge = searchRequest.getAge();
+        Integer maxAge = searchRequest.getAge();
+        String gender = searchRequest.getGender();
+        Long countryId = searchRequest.getCountryId();
+        boolean allCountries = true;
+
+        // Override with user preferences if requested
+        if (searchRequest.isUsePreferences() && pref != null) {
+            minAge = pref.getMinAge();
+            maxAge = pref.getMaxAge();
+            gender = "all".equals(pref.getPreferredGender()) ? null : pref.getPreferredGender();
+            countryId = pref.isAllCountries() ? null :
+                    (pref.getPreferredCountry() != null ? pref.getPreferredCountry().getId() : null);
+            allCountries = pref.isAllCountries();
+        }
+
         // Search for users based on criteria
         return userRepository.findMatchingUsers(
-                searchRequest.getAge(),
-                searchRequest.getCountry(),
-                searchRequest.getGender(),
+                minAge,
+                maxAge,
+                gender,
+                countryId,
+                allCountries,
                 currentUser.getId()
         );
     }

@@ -20,18 +20,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    @Query("SELECT u FROM User u WHERE " +
-            "(:age IS NULL OR u.profile.age = :age) AND " +
-            "(:country IS NULL OR u.profile.country = :country) AND " +
-            "(:gender IS NULL OR u.profile.gender = :gender) AND " +
-            "u.id NOT IN (SELECT bu.id FROM User blocker JOIN blocker.blockedUsers bu WHERE blocker.id = :userId) AND " +
-            "u.id <> :userId")
-    List<User> findMatchingUsers(
-            @Param("age") Integer age,
-            @Param("country") String country,
-            @Param("gender") String gender,
-            @Param("userId") Long userId);
 
     @Query("SELECT u FROM User u WHERE u.lastActive > :timestamp")
     List<User> findOnlineUsers(@Param("timestamp") java.time.LocalDateTime timestamp);
+
+    @Query("SELECT u FROM User u JOIN u.profile p WHERE " +
+            "(:minAge IS NULL OR p.age >= :minAge) AND " +
+            "(:maxAge IS NULL OR p.age <= :maxAge) AND " +
+            "(:gender IS NULL OR p.gender = :gender) AND " +
+            "(:allCountries = true OR (:countryId IS NULL OR p.country.id = :countryId)) AND " +
+            "u.id NOT IN (SELECT bu.id FROM User blocker JOIN blocker.blockedUsers bu WHERE blocker.id = :userId) AND " +
+            "u.id <> :userId")
+    List<User> findMatchingUsers(
+            @Param("minAge") Integer minAge,
+            @Param("maxAge") Integer maxAge,
+            @Param("gender") String gender,
+            @Param("countryId") Long countryId,
+            @Param("allCountries") boolean allCountries,
+            @Param("userId") Long userId);
 }

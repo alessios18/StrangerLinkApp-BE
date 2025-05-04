@@ -27,7 +27,9 @@ public class Profile {
 
     private Integer age;
 
-    private String country;
+    @ManyToOne(fetch = FetchType.EAGER) // Cambiato da LAZY a EAGER per evitare problemi di serializzazione
+    @JoinColumn(name = "country_id")
+    private Country country;
 
     private String gender;
 

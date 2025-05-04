@@ -1,5 +1,8 @@
 package org.strangerlink.userservice.dto;
 
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -8,6 +11,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.strangerlink.userservice.model.Country;
 
 import java.util.List;
 
@@ -25,7 +29,7 @@ public class ProfileDto {
         @Max(value = 120, message = "Age must be less than 120")
         private Integer age;
 
-        private String country;
+        private Long countryId;
 
         private String gender;
 
@@ -35,6 +39,7 @@ public class ProfileDto {
         private List<String> interests;
     }
 
+    // Aggiornare ProfileResponse in ProfileDto.java
     @Data
     @Builder
     @AllArgsConstructor
@@ -44,20 +49,22 @@ public class ProfileDto {
         private Long userId;
         private String displayName;
         private Integer age;
-        private String country;
+        private CountryDto country;
         private String gender;
         private String bio;
         private String profileImageUrl;
         private List<String> interests;
     }
 
+    // Aggiornare ProfileSearchRequest in ProfileDto.java
     @Data
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
     public static class ProfileSearchRequest {
         private Integer age;
-        private String country;
+        private Long countryId;
         private String gender;
+        private boolean usePreferences;
     }
 }

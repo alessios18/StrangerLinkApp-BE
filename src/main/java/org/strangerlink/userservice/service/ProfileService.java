@@ -1,10 +1,13 @@
 package org.strangerlink.userservice.service;
 
+import org.strangerlink.userservice.dto.CountryDto;
 import org.strangerlink.userservice.dto.ProfileDto.ProfileRequest;
 import org.strangerlink.userservice.dto.ProfileDto.ProfileResponse;
+import org.strangerlink.userservice.model.Country;
 import org.strangerlink.userservice.model.Interest;
 import org.strangerlink.userservice.model.Profile;
 import org.strangerlink.userservice.model.User;
+import org.strangerlink.userservice.repository.CountryRepository;
 import org.strangerlink.userservice.repository.InterestRepository;
 import org.strangerlink.userservice.repository.ProfileRepository;
 import org.strangerlink.userservice.repository.UserRepository;
@@ -31,6 +34,7 @@ public class ProfileService {
     private final ProfileRepository profileRepository;
     private final UserRepository userRepository;
     private InterestRepository interestRepository;
+    private CountryRepository countryRepository;
 
     private final Path uploadDir = Paths.get("uploads/profile-images");
 
@@ -69,18 +73,28 @@ public class ProfileService {
                 .map(Interest::getName)
                 .collect(Collectors.toList());
 
+        CountryDto countryDto = null;
+        if (profile.getCountry() != null) {
+            countryDto = new CountryDto(
+                    profile.getCountry().getId(),
+                    profile.getCountry().getName(),
+                    profile.getCountry().getCode()
+            );
+        }
+
         return ProfileResponse.builder()
                 .id(profile.getId())
                 .userId(profile.getUser().getId())
                 .displayName(profile.getDisplayName())
                 .age(profile.getAge())
-                .country(profile.getCountry())
+                .country(countryDto)
                 .gender(profile.getGender())
                 .bio(profile.getBio())
                 .profileImageUrl(profile.getProfileImageUrl())
                 .interests(interestNames)
                 .build();
     }
+
 
     public ProfileResponse getCurrentUserProfile() {
         UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -117,8 +131,10 @@ public class ProfileService {
             profile.setAge(profileRequest.getAge());
         }
 
-        if (profileRequest.getCountry() != null) {
-            profile.setCountry(profileRequest.getCountry());
+        if (profileRequest.getCountryId() != null) {
+            Country country = countryRepository.findById(profileRequest.getCountryId())
+                    .orElseThrow(() -> new RuntimeException("Country not found"));
+            profile.setCountry(country);
         }
 
         if (profileRequest.getGender() != null) {
