@@ -3,6 +3,7 @@ package org.strangerlink.userservice.service;
 import org.strangerlink.userservice.dto.AuthDto.AuthResponse;
 import org.strangerlink.userservice.dto.AuthDto.LoginRequest;
 import org.strangerlink.userservice.dto.AuthDto.RegisterRequest;
+import org.strangerlink.userservice.dto.UserDto;
 import org.strangerlink.userservice.model.Profile;
 import org.strangerlink.userservice.model.User;
 import org.strangerlink.userservice.repository.ProfileRepository;
@@ -68,15 +69,23 @@ public class AuthService {
                 )
         );
 
+        // Crea UserDTO
+        UserDto userDTO = UserDto.builder()
+                .id(savedUser.getId())
+                .username(savedUser.getUsername())
+                .email(savedUser.getEmail())
+                .createdAt(savedUser.getCreatedAt())
+                .lastActive(savedUser.getLastActive())
+                .build();
+
+        // Restituisci AuthResponse con il token e l'oggetto UserDTO
         return AuthResponse.builder()
                 .token(token)
-                .userId(savedUser.getId())
-                .username(savedUser.getUsername())
+                .user(userDTO)
                 .build();
     }
 
     public AuthResponse login(LoginRequest request) {
-        // Authenticate user
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
@@ -86,25 +95,34 @@ public class AuthService {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // Get user details
+        // Ottieni i dettagli dell'utente
         org.springframework.security.core.userdetails.User principal =
                 (org.springframework.security.core.userdetails.User) authentication.getPrincipal();
 
-        // Find our user entity
+        // Trova la nostra entità utente
         User user = userRepository.findByUsername(principal.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Update last active timestamp
+        // Aggiorna il timestamp dell'ultima attività
         user.setLastActive(LocalDateTime.now());
         userRepository.save(user);
 
-        // Generate JWT token
+        // Genera token JWT
         String token = jwtService.generateToken(principal);
 
+        // Crea UserDTO
+        UserDto userDTO = UserDto.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .createdAt(user.getCreatedAt())
+                .lastActive(user.getLastActive())
+                .build();
+
+        // Restituisci AuthResponse con il token e l'oggetto UserDTO
         return AuthResponse.builder()
                 .token(token)
-                .userId(user.getId())
-                .username(user.getUsername())
+                .user(userDTO)
                 .build();
     }
 }

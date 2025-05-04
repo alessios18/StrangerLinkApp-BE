@@ -2,6 +2,8 @@ package org.strangerlink.userservice.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -19,6 +21,8 @@ import java.util.Map;
 @Component
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
+    private final Logger logger = LoggerFactory.getLogger(OAuth2AuthenticationSuccessHandler.class);
+
     @Autowired
     private JwtService jwtService;
 
@@ -28,29 +32,53 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException {
+        try {
+            logger.info("OAuth authentication success");
 
-        OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
-        OAuth2User oAuth2User = oauthToken.getPrincipal();
+            OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
+            OAuth2User oAuth2User = oauthToken.getPrincipal();
 
-        Map<String, Object> attributes = oAuth2User.getAttributes();
+            Map<String, Object> attributes = oAuth2User.getAttributes();
+            logger.info("Got OAuth user attributes");
 
-        String email = (String) attributes.get("email");
-        String name = (String) attributes.get("name");
+            String email = (String) attributes.get("email");
+            String name = (String) attributes.get("name");
 
-        // Crea o aggiorna l'utente con le informazioni di Google
-        User user = userService.processOAuthUser(email, name, "google");
+            if (email == null) {
+                logger.error("Email is null in OAuth user attributes");
+                throw new RuntimeException("Email not available from OAuth provider");
+            }
 
-        // Genera token JWT
-        String token = jwtService.generateToken(
-                new org.springframework.security.core.userdetails.User(
-                        user.getUsername(),
-                        "",
-                        Collections.emptyList()
-                )
-        );
+            // Processa l'utente OAuth
+            User user = userService.processOAuthUser(email, name, "google");
+            logger.info("Processed OAuth user: {}", user.getUsername());
 
-        // Redirect alla homepage con il token come parametro o cookie
-        String redirectUrl = "http://localhost:8080?token=" + token;
-        getRedirectStrategy().sendRedirect(request, response, redirectUrl);
+            // Genera token JWT
+            String token = jwtService.generateToken(
+                    new org.springframework.security.core.userdetails.User(
+                            user.getUsername(),
+                            "",
+                            Collections.emptyList()
+                    )
+            );
+            logger.info("Generated JWT token");
+
+            // Due opzioni:
+            // 1. Reindirizza all'app mobile o web con il token
+            // String redirectUrl = "http://YOUR_FRONTEND_URL?token=" + token;
+
+            // 2. Restituisci il token come JSON (utile per app mobili)
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write(
+                    "{\"token\":\"" + token + "\",\"userId\":\"" + user.getId() +
+                            "\",\"username\":\"" + user.getUsername() + "\"}"
+            );
+
+        } catch (Exception e) {
+            logger.error("Error during OAuth authentication success handling", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"Authentication error: " + e.getMessage() + "\"}");
+        }
     }
 }

@@ -46,7 +46,6 @@ public class AuthDto {
     @NoArgsConstructor
     public static class AuthResponse {
         private String token;
-        private Long userId;
-        private String username;
+        private UserDto user;
     }
 }
