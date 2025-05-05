@@ -49,8 +49,8 @@ public class AuthService {
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setCreatedAt(LocalDateTime.now());
-        user.setLastActive(LocalDateTime.now());
+        user.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
+        user.setLastActive(LocalDateTime.now(ZoneOffset.UTC));
 
         User savedUser = userRepository.save(user);
 
@@ -108,7 +108,7 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Only update lastActive, NOT createdAt
-        user.setLastActive(LocalDateTime.now());
+        user.setLastActive(LocalDateTime.now(ZoneOffset.UTC));
         userRepository.save(user);
 
         // Generate JWT token

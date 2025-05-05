@@ -12,6 +12,7 @@ import org.strangerlink.model.User;
 import org.strangerlink.repository.UserRepository;
 import org.strangerlink.service.UserService;
 
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -87,7 +88,7 @@ public class SearchController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Get recently active users (last 24 hours)
-        java.time.LocalDateTime cutoffTime = java.time.LocalDateTime.now().minusHours(24);
+        java.time.LocalDateTime cutoffTime = java.time.LocalDateTime.now(ZoneOffset.UTC).minusHours(24);
         List<User> recentUsers = userRepository.findOnlineUsers(cutoffTime).stream()
                 .filter(user -> !user.getId().equals(currentUser.getId())) // Exclude current user
                 .collect(Collectors.toList());

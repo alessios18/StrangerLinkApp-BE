@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -79,7 +80,7 @@ public class UserService {
         boolean allCountries = pref.isAllCountries();
 
         // Set last active threshold (configurable)
-        LocalDateTime lastActiveThreshold = LocalDateTime.now().minusHours(1); // Default 1 hour
+        LocalDateTime lastActiveThreshold = LocalDateTime.now(ZoneOffset.UTC).minusHours(1); // Default 1 hour
 
         // Find random matching user
         List<User> matchingUsers = userRepository.findRandomMatchingUser(
@@ -155,8 +156,8 @@ public class UserService {
         newUser.setUsername(generateUniqueUsername(name));
         newUser.setPassword(""); // Password vuota per utenti OAuth
         newUser.setEnabled(true);
-        newUser.setCreatedAt(LocalDateTime.now());
-        newUser.setLastActive(LocalDateTime.now());
+        newUser.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
+        newUser.setLastActive(LocalDateTime.now(ZoneOffset.UTC));
 
         User savedUser = userRepository.save(newUser);
 

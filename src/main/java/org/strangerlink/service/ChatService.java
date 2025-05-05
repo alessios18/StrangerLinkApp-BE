@@ -19,6 +19,7 @@ import org.strangerlink.repository.MessageRepository;
 import org.strangerlink.dto.UserDto;
 import org.strangerlink.model.User;
 import org.strangerlink.repository.UserRepository;
+import org.strangerlink.utils.DateTimeUtils;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -49,7 +50,7 @@ public class ChatService {
             conversation = new Conversation();
             conversation.setUser1Id(senderId);
             conversation.setUser2Id(receiverId);
-            conversation.setCreatedAt(LocalDateTime.now());
+            conversation.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
             conversation = conversationRepository.save(conversation);
             isNewConversation = true;
         } else {
@@ -63,7 +64,7 @@ public class ChatService {
         message.setSenderId(senderId);
         message.setConversationId(conversation.getId());
         message.setContent(messageDto.getContent());
-        message.setTimestamp(LocalDateTime.now());
+        message.setTimestamp(DateTimeUtils.fromEpocToDateTime(messageDto.getTimestamp()));
         message.setType(Message.MessageType.valueOf(messageDto.getType()));
         message.setStatus(Message.MessageStatus.SENT);
         message.setMediaUrl(messageDto.getMediaUrl());
@@ -224,7 +225,7 @@ public class ChatService {
         Conversation newConversation = new Conversation();
         newConversation.setUser1Id(user1Id);
         newConversation.setUser2Id(user2Id);
-        newConversation.setCreatedAt(LocalDateTime.now());
+        newConversation.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
 
         return conversationRepository.save(newConversation);
     }
