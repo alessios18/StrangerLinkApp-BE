@@ -33,14 +33,13 @@ public class ChatController {
 
     @MessageMapping("/chat.presence")
     public void updatePresence(Principal principal) {
-        Long userId = Long.valueOf(principal.getName());
-        chatPresenceService.updateUserPresence(userId);
+
+        chatPresenceService.updateUserPresence(getPrincipalUserId(principal));
     }
 
     @MessageMapping("/chat.typing")
     public void processTypingIndicator(@Payload TypingDto typingDto, Principal principal) {
-        Long userId = Long.valueOf(principal.getName());
-        chatPresenceService.setUserTypingStatus(userId, typingDto.getConversationId(), typingDto.isTyping());
+        chatPresenceService.setUserTypingStatus(getPrincipalUserId(principal), typingDto.getConversationId(), typingDto.isTyping());
     }
 
     @GetMapping("/conversations/{conversationId}/typing")
@@ -70,8 +69,7 @@ public class ChatController {
 
     @PostMapping("/conversations/{conversationId}/read")
     public ResponseEntity<Void> markMessagesAsRead(@PathVariable Long conversationId) {
-        Long userId = getCurrentUserId();
-        chatService.markMessagesAsRead(conversationId, userId);
+        chatService.markMessagesAsRead(conversationId, getCurrentUserId());
         return ResponseEntity.ok().build();
     }
 
@@ -79,17 +77,21 @@ public class ChatController {
     public ResponseEntity<MessageDto> sendMessage(
             @PathVariable Long receiverId,
             @RequestBody MessageDto messageDto) {
-        Long senderId = getCurrentUserId();
-        MessageDto sentMessage = chatService.sendMessage(senderId, receiverId, messageDto);
+        MessageDto sentMessage = chatService.sendMessage(getCurrentUserId(), receiverId, messageDto);
         return ResponseEntity.ok(sentMessage);
     }
 
     @MessageMapping("/chat.send")
     public void processMessage(@Payload MessageDto messageDto, Principal principal) {
-        Long senderId = Long.valueOf(principal.getName());
-        chatService.sendMessage(senderId, messageDto.getReceiverId(), messageDto);
+        chatService.sendMessage(getPrincipalUserId(principal), messageDto.getReceiverId(), messageDto);
     }
 
+    private Long getPrincipalUserId(Principal principal) {
+        String username = principal.getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return user.getId();
+    }
 
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
