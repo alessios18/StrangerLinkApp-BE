@@ -89,8 +89,7 @@ public class UserService {
                 gender,
                 countryId,
                 allCountries,
-                userId,
-                lastActiveThreshold
+                userId
         );
 
         if (matchingUsers.isEmpty()) {

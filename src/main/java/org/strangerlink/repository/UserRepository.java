@@ -48,15 +48,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "u.id NOT IN (SELECT c.user1Id FROM Conversation c WHERE c.user2Id = :userId) AND " +
             "u.id NOT IN (SELECT c.user2Id FROM Conversation c WHERE c.user1Id = :userId) AND " +
             "u.id NOT IN (SELECT bu.id FROM User blocker JOIN blocker.blockedUsers bu WHERE blocker.id = :userId) AND " +
-            "u.lastActive > :lastActiveTime AND " +
             "u.id <> :userId " +
-            "ORDER BY FUNCTION('RANDOM')")
+            "ORDER BY u.lastActive DESC")
     List<User> findRandomMatchingUser(
             @Param("minAge") Integer minAge,
             @Param("maxAge") Integer maxAge,
             @Param("gender") String gender,
             @Param("countryId") Long countryId,
             @Param("allCountries") boolean allCountries,
-            @Param("userId") Long userId,
-            @Param("lastActiveTime") LocalDateTime lastActiveTime);
+            @Param("userId") Long userId);
 }
