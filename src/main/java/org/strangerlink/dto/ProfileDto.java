@@ -24,7 +24,7 @@ public class ProfileDto {
         @Max(value = 120, message = "Age must be less than 120")
         private Integer age;
 
-        private Long countryId;
+        private CountryDto country;
 
         private String gender;
 

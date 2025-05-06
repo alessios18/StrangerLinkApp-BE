@@ -37,10 +37,12 @@ public class ProfileService {
 
     public ProfileService(ProfileRepository profileRepository,
                           UserRepository userRepository,
-                          InterestRepository interestRepository) {
+                          InterestRepository interestRepository,
+                          CountryRepository countryRepository) {
         this.profileRepository = profileRepository;
         this.userRepository = userRepository;
         this.interestRepository = interestRepository;
+        this.countryRepository = countryRepository;
     }
 
     // Metodo per aggiungere interessi a un profilo
@@ -128,8 +130,8 @@ public class ProfileService {
             profile.setAge(profileRequest.getAge());
         }
 
-        if (profileRequest.getCountryId() != null) {
-            Country country = countryRepository.findById(profileRequest.getCountryId())
+        if (profileRequest.getCountry() != null) {
+            Country country = countryRepository.findById(profileRequest.getCountry().getId())
                     .orElseThrow(() -> new RuntimeException("Country not found"));
             profile.setCountry(country);
         }
