@@ -73,6 +73,12 @@ public class ChatController {
         return ResponseEntity.ok().build();
     }
 
+    @MessageMapping("/chat.delivered")
+    public void markMessagesAsDelivered(@Payload DeliveryReceiptDto payload, Principal principal) {
+        Long userId = getPrincipalUserId(principal);
+        chatService.markMessagesAsDelivered(payload.getConversationId(), userId);
+    }
+
     @PostMapping("/send/{receiverId}")
     public ResponseEntity<MessageDto> sendMessage(
             @PathVariable Long receiverId,
@@ -106,5 +112,11 @@ public class ChatController {
         private Long conversationId;
         private Long receiverId;
         private boolean typing;
+    }
+
+    @Data
+    private static class DeliveryReceiptDto {
+        private Long conversationId;
+        private Long userId;
     }
 }

@@ -113,19 +113,25 @@ public class ChatService {
         List<Message> sentMessages = messageRepository.findMessagesByStatusAndRecipient(
                 conversationId, Message.MessageStatus.SENT, userId);
 
-        // Update to DELIVERED
-        sentMessages.forEach(message -> message.setStatus(Message.MessageStatus.DELIVERED));
-        List<Message> updatedMessages = messageRepository.saveAll(sentMessages);
+        if (!sentMessages.isEmpty()) {
+            // Log activity for debugging
+            System.out.println("Marking " + sentMessages.size() + " messages as DELIVERED for user " + userId);
 
-        // Notify senders about delivery status updates
-        updatedMessages.forEach(message -> {
-            MessageDto messageDto = convertToMessageDto(message);
-            messagingTemplate.convertAndSendToUser(
-                    message.getSenderId().toString(),
-                    "/queue/message-status",
-                    messageDto
-            );
-        });
+            // Update to DELIVERED
+            sentMessages.forEach(message -> message.setStatus(Message.MessageStatus.DELIVERED));
+            List<Message> updatedMessages = messageRepository.saveAll(sentMessages);
+
+            // Notify senders about delivery status updates
+            updatedMessages.forEach(message -> {
+                MessageDto messageDto = convertToMessageDto(message);
+                System.out.println("Sending delivery notification to user " + message.getSenderId() + " for message " + message.getId());
+                messagingTemplate.convertAndSendToUser(
+                        message.getSenderId().toString(),
+                        "/queue/message-status",
+                        messageDto
+                );
+            });
+        }
     }
 
     @Transactional
@@ -180,32 +186,32 @@ public class ChatService {
 
     @Transactional
     public void markMessagesAsRead(Long conversationId, Long userId) {
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+        // Log per debug
+        System.out.println("Marking messages as READ in conversation " + conversationId + " for user " + userId);
 
-        // Update message status
         List<Message> unreadMessages = messageRepository.findUnreadMessages(conversationId, userId);
-        unreadMessages.forEach(message -> message.setStatus(Message.MessageStatus.READ));
-        messageRepository.saveAll(unreadMessages);
 
-        // Reset unread counter
-        if (conversation.getUser1Id().equals(userId)) {
-            conversation.setUnreadCountUser1(0);
-        } else {
-            conversation.setUnreadCountUser2(0);
+        if (!unreadMessages.isEmpty()) {
+            System.out.println("Found " + unreadMessages.size() + " messages to mark as READ");
+
+            unreadMessages.forEach(message -> {
+                message.setStatus(Message.MessageStatus.READ);
+                System.out.println("Marked message " + message.getId() + " as READ");
+            });
+
+            messageRepository.saveAll(unreadMessages);
+
+            // Notifica esplicita ai mittenti
+            unreadMessages.forEach(message -> {
+                MessageDto messageDto = convertToMessageDto(message);
+                System.out.println("Sending READ notification to user " + message.getSenderId() + " for message " + message.getId());
+                messagingTemplate.convertAndSendToUser(
+                        message.getSenderId().toString(),
+                        "/queue/message-status",
+                        messageDto
+                );
+            });
         }
-
-        conversationRepository.save(conversation);
-
-        // Notify sender that messages were read
-        unreadMessages.forEach(message -> {
-            MessageDto messageDto = convertToMessageDto(message);
-            messagingTemplate.convertAndSendToUser(
-                    message.getSenderId().toString(),
-                    "/queue/message-status",
-                    messageDto
-            );
-        });
     }
 
     public void setUserOnlineStatus(Long userId, boolean isOnline) {
