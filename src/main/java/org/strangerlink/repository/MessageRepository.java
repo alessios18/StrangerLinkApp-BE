@@ -21,4 +21,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
             "AND m.status = 'DELIVERED' AND m.senderId <> :userId")
     List<Message> findUnreadMessages(@Param("conversationId") Long conversationId,
                                      @Param("userId") Long userId);
+
+    @Query("SELECT m FROM Message m WHERE m.conversationId = :conversationId " +
+            "AND m.status = :status AND m.senderId <> :userId")
+    List<Message> findMessagesByStatusAndRecipient(
+            @Param("conversationId") Long conversationId,
+            @Param("status") Message.MessageStatus status,
+            @Param("userId") Long userId);
 }

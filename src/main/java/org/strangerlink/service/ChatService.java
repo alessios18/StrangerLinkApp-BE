@@ -108,6 +108,27 @@ public class ChatService {
     }
 
     @Transactional
+    public void markMessagesAsDelivered(Long conversationId, Long userId) {
+        // Find messages that are SENT but not yet DELIVERED
+        List<Message> sentMessages = messageRepository.findMessagesByStatusAndRecipient(
+                conversationId, Message.MessageStatus.SENT, userId);
+
+        // Update to DELIVERED
+        sentMessages.forEach(message -> message.setStatus(Message.MessageStatus.DELIVERED));
+        List<Message> updatedMessages = messageRepository.saveAll(sentMessages);
+
+        // Notify senders about delivery status updates
+        updatedMessages.forEach(message -> {
+            MessageDto messageDto = convertToMessageDto(message);
+            messagingTemplate.convertAndSendToUser(
+                    message.getSenderId().toString(),
+                    "/queue/message-status",
+                    messageDto
+            );
+        });
+    }
+
+    @Transactional
     public List<MessageDto> getMessages(Long conversationId, Long userId, int page, int size) {
         return messageRepository.findByConversationIdOrderByTimestampDesc(
                         conversationId,
